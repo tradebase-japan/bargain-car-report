@@ -218,9 +218,15 @@ TEMPLATE = """<!DOCTYPE html>
           </div>
 
           <div class="flex flex-col sm:flex-row gap-2 pt-1">
-            <a href="{{ car.url }}" class="flex-1 flex items-center justify-center gap-2 bg-gray-900 text-white text-sm font-semibold px-5 py-3 rounded-2xl hover:bg-gray-700 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900">
+            {% if car.url and car.url != "#" %}
+            <a href="{{ car.url }}" target="_blank" rel="noopener noreferrer" class="flex-1 flex items-center justify-center gap-2 bg-gray-900 text-white text-sm font-semibold px-5 py-3 rounded-2xl hover:bg-gray-700 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900">
               <span aria-hidden="true">🔗</span> 掲載ページを見る
             </a>
+            {% else %}
+            <span class="flex-1 flex items-center justify-center gap-2 bg-gray-100 text-gray-400 text-sm font-semibold px-5 py-3 rounded-2xl cursor-not-allowed" title="デモデータのためリンクはありません">
+              <span aria-hidden="true">🔗</span> 掲載ページを見る（デモ）
+            </span>
+            {% endif %}
             <button class="flex-1 flex items-center justify-center gap-2 bg-gray-100 text-gray-700 text-sm font-semibold px-5 py-3 rounded-2xl hover:bg-gray-200 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400">
               <span aria-hidden="true">💬</span> Slack通知イメージ
             </button>
