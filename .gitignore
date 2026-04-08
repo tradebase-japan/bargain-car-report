@@ -1,0 +1,11 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+
+# 生成物（GitHub Pages はgh-pagesブランチで管理）
+output/
+
+# macOS
+.DS_Store

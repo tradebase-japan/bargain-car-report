@@ -1,0 +1,42 @@
+name: 割安認定中古車レポート 自動生成
+
+on:
+  schedule:
+    - cron: '0 0 * * *'   # JST 毎朝9:00（UTC 00:00）
+  workflow_dispatch:        # 手動実行ボタン
+
+permissions:
+  contents: write           # GitHub Pages デプロイに必要
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+
+      - name: Python 3.12 をセットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'          # 依存パッケージをキャッシュして高速化
+
+      - name: 依存パッケージをインストール
+        run: pip install -r requirements.txt
+
+      - name: レポートを生成
+        env:
+          USE_DEMO:         'true'
+          OUTPUT_PATH:      'output/index.html'
+          REPORT_URL:       'https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}'
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: python main.py
+
+      - name: GitHub Pages にデプロイ
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./output
+          publish_branch: gh-pages
+          commit_message: '🚗 レポート自動更新 ${{ github.run_id }}'
