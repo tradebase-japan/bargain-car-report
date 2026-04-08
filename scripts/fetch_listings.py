@@ -1,20 +1,20 @@
 """
 認定中古車リスト取得モジュール
-グーネット（goo-net.com）から関東の認定中古車をスクレイピングする。
-失敗した場合はデモデータにフォールバックする。
+GAZOO.com（トヨタ公式）と Honda 公式 API から関東の認定中古車を取得する。
 """
 import logging
 import random
 import re
 import time
-import datetime
 import requests
 from bs4 import BeautifulSoup
 
 logging.basicConfig(level=logging.INFO, format="[fetch] %(message)s")
 log = logging.getLogger(__name__)
 
-BASE_URL = "https://www.goo-net.com/usedcar/brand-{brand}/pref-{pref:02d}/"
+GAZOO_BASE = "https://gazoo.com/DealerU-Car/search_result"
+HONDA_API  = "https://ucar.honda.co.jp/api/Car/FindCarList"
+HONDA_DETAIL_BASE = "https://ucar.honda.co.jp/Car/Detail"
 
 HEADERS = {
     "User-Agent": (
@@ -22,260 +22,353 @@ HEADERS = {
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/123.0.0.0 Safari/537.36"
     ),
-    "Accept-Language": "ja,en;q=0.9",
+    "Accept-Language": "ja-JP,ja;q=0.9,en;q=0.8",
 }
 
-BRANDS = {
-    "トヨタ": "TOYOTA",
-    "ホンダ": "HONDA",
+# GAZOO.com 関東トヨタ系全ディーラー
+# コード体系: 03xxx=トヨタ, 13xxx=トヨペット, 33xxx=カローラ, 43xxx=ネッツ
+TOYOTA_KANTO_DEALERS: dict[str, tuple[str, str]] = {
+    "03101": ("茨城トヨタ自動車",     "茨城県"),
+    "03201": ("栃木トヨタ自動車",     "栃木県"),
+    "03301": ("群馬トヨタ自動車",     "群馬県"),
+    "03401": ("埼玉トヨタ自動車",     "埼玉県"),
+    "03501": ("千葉トヨタ自動車",     "千葉県"),
+    "03601": ("トヨタモビリティ東京", "東京都"),
+    "03701": ("トヨタモビリティ神奈川", "神奈川県"),
+    "13101": ("茨城トヨペット",       "茨城県"),
+    "13201": ("栃木トヨペット",       "栃木県"),
+    "13301": ("群馬トヨペット",       "群馬県"),
+    "13401": ("埼玉トヨペット",       "埼玉県"),
+    "13501": ("千葉トヨペット",       "千葉県"),
+    "13701": ("ウエインズトヨタ神奈川", "神奈川県"),
+    "33201": ("トヨタカローラ栃木",   "栃木県"),
+    "33301": ("トヨタカローラ群馬",   "群馬県"),
+    "33401": ("トヨタカローラ埼玉",   "埼玉県"),
+    "33501": ("トヨタカローラ千葉",   "千葉県"),
+    "43101": ("ネッツトヨタ茨城",     "茨城県"),
+    "43201": ("ネッツトヨタ栃木",     "栃木県"),
+    "43301": ("ネッツトヨタ群馬",     "群馬県"),
+    "43401": ("ネッツトヨタ東埼玉",   "埼玉県"),
+    "43501": ("ネッツトヨタ千葉",     "千葉県"),
 }
 
-KANTO_PREFS = {
-    13: "東京都",
-    14: "神奈川県",
-    11: "埼玉県",
-    12: "千葉県",
-    8:  "茨城県",
-    9:  "栃木県",
-    10: "群馬県",
-}
-
-# ===== 正規ディーラー判定 =====
-
-# トヨタ正規ディーラーの店舗名キーワード
-# トヨタ系販売会社は「○○トヨタ」「トヨペット」「ネッツ」「カローラ」等の名称を使用する
-TOYOTA_DEALER_KEYWORDS = [
-    "トヨタ", "ネッツ", "カローラ", "レクサス", "トヨペット",
-    "ﾄﾖﾀ", "ネッツ", "TOYOTA",
-]
-
-# ホンダ正規ディーラーの店舗名キーワード
-HONDA_DEALER_KEYWORDS = [
-    "Honda Cars", "ホンダカーズ", "ﾎﾝﾀﾞｶｰｽﾞ", "Honda　Cars",
-    "ホンダ Cars", "Ｈｏｎｄａ", "HONDA",
-]
-
-# 非ディーラーと判定する除外キーワード（ウィーカーズ等の量販店）
-NON_DEALER_KEYWORDS = [
-    "ウィーカーズ", "ガリバー", "ビッグモーター", "ネクステージ",
-    "フレックス", "ＳＵＶＬＡＮＤ", "ＳＵＶ　ＬＡＮＤ", "SUV LAND", "ＳＵＶ　Ｌａｎｄ",
-    "グッドスピード", "オートバックス", "ケーユー",
-    "ユーポス", "ハナテン", "ラビット", "リミックス",
-    "チューリップ", "アップル", "ジャック",
-]
+# Honda 公式 API: 関東都道府県コード（JIS X 0401 2桁文字列）
+HONDA_KANTO_PREFS = ["08", "09", "10", "11", "12", "13", "14"]
 
 
-def _is_official_dealer(card: BeautifulSoup, brand_jp: str) -> bool:
-    """
-    メーカー正規ディーラーかどうかを判定する。
-    ① makerHosyouLogo に <img> があればメーカー認定確定
-    ② 店舗名のホワイトリストで判定（①が取れない場合のフォールバック）
-    """
-    # ① メーカー保証ロゴ画像があればメーカー認定確定
-    maker_logo = card.select_one("div.makerHosyouLogo img")
-    if maker_logo:
-        return True
+# ─────────────────────────────────────────────
+# GAZOO.com スクレイピング
+# ─────────────────────────────────────────────
 
-    # ② 店舗名ホワイトリスト判定
-    dealer_el = card.select_one("p.dealer-name")
-    if not dealer_el:
-        return False
-    shop = dealer_el.get_text(strip=True)
-
-    # まず非ディーラーキーワードで除外
-    for ng in NON_DEALER_KEYWORDS:
-        if ng in shop:
-            return False
-
-    # 次にブランド別のホワイトリストで判定
-    keywords = TOYOTA_DEALER_KEYWORDS if brand_jp == "トヨタ" else HONDA_DEALER_KEYWORDS
-    return any(kw in shop for kw in keywords)
-
-
-# ===== 実スクレイピング =====
-
-def _parse_card(card: BeautifulSoup, brand_jp: str, pref_name: str) -> "dict | None":
-    """
-    div.box_item_detail から1件の車両情報を抽出する。
-    メーカー正規ディーラー以外はスキップする。
-    """
+def _parse_gazoo_card(dl: BeautifulSoup, dealer_code: str, pref: str) -> "dict | None":
+    """GAZOO.com の dl カード要素を1件の車両辞書に変換する。"""
     try:
-        # メーカー正規ディーラーのみ対象
-        if not _is_official_dealer(card, brand_jp):
+        dt = dl.find("dt")
+        dd = dl.find("dd")
+        if not dt or not dd:
             return None
 
-        h3 = card.select_one("h3")
-        if not h3:
+        # NEW バッジ
+        is_new = bool(dt.find("img", alt="NEW"))
+
+        # 車名・メーカー
+        name_el = dt.find("span", class_="car_name")
+        if not name_el:
+            return None
+        full_name = name_el.get_text(strip=True)
+
+        # URL と車両 ID
+        link = dd.find("a", class_="wrap_link")
+        if not link:
+            return None
+        href = link.get("href", "")
+        id_m = re.search(r"Id=(\d+)", href)
+        if not id_m:
+            return None
+        car_id = id_m.group(1)
+        url = "https://gazoo.com" + href
+
+        # 車両価格（li.base の .price .number）
+        price_area = dd.find("ul", class_="price_area")
+        if not price_area:
+            return None
+        base_li = price_area.find("li", class_="base")
+        if not base_li:
+            return None
+        num_p = base_li.find("p", class_="number")
+        if not num_p:
+            return None
+        # <p class="number">300<span class="price_decimal"></span><span>万円</span></p>
+        price_text = num_p.get_text(strip=True).replace("万円", "").replace(",", "").strip()
+        try:
+            price = int(float(price_text))
+        except ValueError:
             return None
 
-        full_name = h3.get_text(strip=True)
-        model_name = (
-            full_name
-            .replace("トヨタ", "")
-            .replace("ホンダ", "")
-            .strip()
-        )
-
-        spec_text = card.get_text(separator=" ", strip=True)
-
-        # 支払総額（最初に出てくる万円単位の数値）
-        prices_found = re.findall(r"([\d,]+\.?\d*)\s*万円", spec_text)
-        if not prices_found:
+        # 年式・走行距離（ul.detail_table の各 li）
+        detail_table = dd.find("ul", class_="detail_table")
+        if not detail_table:
             return None
-        price = int(float(prices_found[0].replace(",", "")))
+        year = 0
+        mileage_km = 0
+        for li in detail_table.find_all("li"):
+            ps = li.find_all("p", recursive=False)
+            if len(ps) < 2:
+                continue
+            label = ps[0].get_text(strip=True)
+            value = ps[1].get_text(strip=True)
+            if label == "年式":
+                m = re.search(r"(\d{4})年", value)
+                if m:
+                    year = int(m.group(1))
+            elif label == "走行距離":
+                if "万km" in value:
+                    m = re.search(r"([\d.]+)万km", value)
+                    if m:
+                        mileage_km = int(float(m.group(1)) * 10_000)
+                elif "km" in value:
+                    m = re.search(r"([\d,]+)km", value)
+                    if m:
+                        mileage_km = int(m.group(1).replace(",", ""))
 
-        # 年式
-        year_m = re.search(r"年式\D*(\d{4})年", spec_text)
-        year = int(year_m.group(1)) if year_m else 0
-        if not year:
+        if not year or not mileage_km:
             return None
 
-        # 走行距離（万km → km変換）対象範囲: 0.5〜9.9万km
-        km_m = re.search(r"走行距離\D*([\d.]+)万km", spec_text)
-        if not km_m:
+        # 走行距離フィルタ（0.5〜9.9 万km）
+        if mileage_km < 5_000 or mileage_km > 99_000:
             return None
-        mileage_km = int(float(km_m.group(1)) * 10000)
-        if mileage_km < 5000 or mileage_km > 99000:
-            return None   # 対象外（ほぼ新車 or 高走行）
 
         # 店舗名
-        dealer_el = card.select_one("p.dealer-name")
-        shop = dealer_el.get_text(strip=True) if dealer_el else ""
-
-        # 掲載URL
-        link = card.select_one("a[href*='/usedcar/spread/']")
-        detail_url = "https://www.goo-net.com" + link["href"] if link else "#"
-
-        # 新着判定
-        is_new = bool(card.find(string=re.compile(r"新着|NEW")))
+        dealer_span = dd.find("span", class_="dealer-name")
+        shop = dealer_span.get_text(strip=True) if dealer_span else ""
 
         return {
-            "brand": brand_jp,
-            "certified": True,
-            "name": model_name,
-            "grade": "",
-            "year": year,
-            "mileage_km": mileage_km,
-            "color": "",
+            "id":          f"gazoo_{car_id}",
+            "source":      "gazoo",
+            "brand":       "トヨタ",
+            "certified":   True,
+            "name":        full_name,
+            "grade":       "",
+            "year":        year,
+            "mileage_km":  mileage_km,
+            "color":       "",
             "color_emoji": "",
-            "pref": pref_name,
-            "shop": shop,
-            "price": price,
-            "url": detail_url,
-            "is_new": is_new,
+            "pref":        pref,
+            "shop":        shop,
+            "price":       price,
+            "url":         url,
+            "is_new":      is_new,
         }
 
     except (AttributeError, ValueError, KeyError) as e:
-        log.debug("カードパース失敗: %s", e)
+        log.debug("GAZOOカードパース失敗: %s", e)
         return None
 
 
-def _scrape_brand(brand_jp: str, brand_en: str, max_pages: int = 3) -> list[dict]:
-    """グーネットから指定メーカーの認定中古車を関東全域でスクレイピングする。"""
+def fetch_gazoo_listings(new_only: bool = True) -> list[dict]:
+    """
+    GAZOO.com から関東全ディーラーの認定中古車一覧を取得する。
+
+    Args:
+        new_only: True のとき New=1 パラメータを付けて新着のみ取得
+    """
     listings: list[dict] = []
 
-    for pref_code, pref_name in KANTO_PREFS.items():
-        for page in range(1, max_pages + 1):
-            url = BASE_URL.format(brand=brand_en, pref=pref_code)
-            params = {"certification": 1, "p": page}
+    for sdlr, (dealer_name, pref) in TOYOTA_KANTO_DEALERS.items():
+        params: dict = {"Sdlr": sdlr}
+        if new_only:
+            params["New"] = 1
 
-            try:
-                resp = requests.get(url, params=params, headers=HEADERS, timeout=20)
-                if resp.status_code != 200:
-                    log.debug("%s %s p%d: HTTP %d", brand_jp, pref_name, page, resp.status_code)
-                    break
+        try:
+            resp = requests.get(GAZOO_BASE, params=params, headers=HEADERS, timeout=20)
+            if resp.status_code != 200:
+                log.warning("GAZOO %s: HTTP %d", dealer_name, resp.status_code)
+                time.sleep(2)
+                continue
 
-                resp.encoding = resp.apparent_encoding
-                soup = BeautifulSoup(resp.text, "lxml")
-                cards = soup.select("div.box_item_detail")
+            soup = BeautifulSoup(resp.text, "lxml")
+            wrap = soup.find("div", id="car-list-wrap")
+            if not wrap:
+                log.debug("GAZOO %s: car-list-wrap なし", dealer_name)
+                time.sleep(1)
+                continue
 
-                if not cards:
-                    break
+            cards = wrap.find_all("dl", recursive=False)
+            dealer_results: list[dict] = []
+            for dl in cards:
+                parsed = _parse_gazoo_card(dl, sdlr, pref)
+                if parsed:
+                    dealer_results.append(parsed)
 
-                page_results = []
-                for card in cards:
-                    parsed = _parse_card(card, brand_jp, pref_name)
-                    if parsed:
-                        page_results.append(parsed)
+            listings.extend(dealer_results)
+            log.info("GAZOO %s: %d件", dealer_name, len(dealer_results))
 
-                listings.extend(page_results)
-                log.info("%s %s p%d: %d件取得", brand_jp, pref_name, page, len(page_results))
+        except requests.RequestException as e:
+            log.warning("GAZOO %s: ネットワークエラー: %s", dealer_name, e)
 
-                if len(cards) < 20:
-                    break
+        time.sleep(random.uniform(1.5, 2.5))
 
-                time.sleep(random.uniform(2.0, 3.5))
-
-            except requests.RequestException as e:
-                log.warning("%s %s p%d: ネットワークエラー: %s", brand_jp, pref_name, page, e)
-                time.sleep(5)   # レートリミット後は長めに待つ
-                break
-            except Exception as e:
-                log.warning("%s %s p%d: 予期しないエラー: %s", brand_jp, pref_name, page, e)
-                break
-
-        time.sleep(random.uniform(2.0, 3.0))
-
-    log.info("%s: 合計%d件", brand_jp, len(listings))
+    log.info("GAZOO 合計: %d件", len(listings))
     return listings
 
 
-# ===== デモデータ（フォールバック用） =====
+# ─────────────────────────────────────────────
+# Honda 公式 API
+# ─────────────────────────────────────────────
+
+def fetch_honda_listings(max_pages: int = 5) -> list[dict]:
+    """
+    Honda 公式 API から関東の U-Select 認定中古車一覧を取得する。
+    """
+    listings: list[dict] = []
+    headers = {
+        **HEADERS,
+        "Content-Type": "application/json",
+        "Referer": "https://ucar.honda.co.jp/",
+    }
+
+    for page in range(1, max_pages + 1):
+        payload = {
+            "IsUSelect":        True,
+            "IsUSelectPremium": True,
+            "Page":             page,
+            "OrderBy":          11,   # デフォルト（新着順）
+            "PrefectureCdList": HONDA_KANTO_PREFS,
+            "DeliverablePrefectureFlg": False,
+        }
+
+        try:
+            resp = requests.post(HONDA_API, headers=headers, json=payload, timeout=20)
+            if resp.status_code != 200:
+                log.warning("Honda API p%d: HTTP %d", page, resp.status_code)
+                break
+
+            data = resp.json()
+            cars = data.get("Data", [])
+            if not cars:
+                break
+
+            for car in cars:
+                try:
+                    wns_cd = car.get("WnsPropertyCd", "")
+                    if not wns_cd:
+                        continue
+
+                    price_info = car.get("CarPrice", {})
+                    price_str  = price_info.get("Price", "0") if isinstance(price_info, dict) else "0"
+                    try:
+                        price = int(float(price_str))
+                    except (ValueError, TypeError):
+                        continue
+
+                    # 走行距離（単位: 万km）
+                    dist = car.get("RunningDistance", 0) or 0
+                    mileage_km = int(float(dist) * 10_000)
+                    if mileage_km < 5_000 or mileage_km > 99_000:
+                        continue
+
+                    year = car.get("ModelYear", 0) or 0
+                    if not year:
+                        continue
+
+                    listings.append({
+                        "id":          f"honda_{wns_cd}",
+                        "source":      "honda",
+                        "brand":       "ホンダ",
+                        "certified":   True,
+                        "name":        car.get("CarName", "").strip(),
+                        "grade":       car.get("GradeName", "").strip(),
+                        "year":        year,
+                        "mileage_km":  mileage_km,
+                        "color":       car.get("BodyColor", ""),
+                        "color_emoji": "",
+                        "pref":        car.get("StorePrefecture", ""),
+                        "shop":        car.get("StoreName", ""),
+                        "price":       price,
+                        "url":         f"{HONDA_DETAIL_BASE}/{wns_cd}",
+                        "is_new":      False,  # track_seen で後から判定
+                    })
+
+                except (KeyError, TypeError) as e:
+                    log.debug("Hondaカードパース失敗: %s", e)
+                    continue
+
+            log.info("Honda API p%d: %d件取得", page, len(cars))
+            total_pages = data.get("TotalPage", 1)
+            if page >= total_pages:
+                break
+
+        except requests.RequestException as e:
+            log.warning("Honda API p%d: ネットワークエラー: %s", page, e)
+            break
+
+        time.sleep(random.uniform(1.0, 2.0))
+
+    log.info("Honda 合計: %d件", len(listings))
+    return listings
+
+
+# ─────────────────────────────────────────────
+# デモデータ（フォールバック用）
+# ─────────────────────────────────────────────
+
+import datetime
+import random as _rnd
 
 DEMO_MODELS = [
-    {"brand": "トヨタ", "name": "シエンタ HV G",          "base": 195},
-    {"brand": "トヨタ", "name": "ヴォクシー S-Z",          "base": 310},
-    {"brand": "トヨタ", "name": "プリウス Z",              "base": 355},
-    {"brand": "トヨタ", "name": "ハリアー Z",              "base": 390},
-    {"brand": "トヨタ", "name": "ヤリスクロス HV Z",       "base": 235},
-    {"brand": "ホンダ", "name": "フリードＧ・センシング",   "base": 185},
-    {"brand": "ホンダ", "name": "ヴェゼル e:HEV Z",        "base": 275},
-    {"brand": "ホンダ", "name": "ステップワゴン SPADA",     "base": 340},
+    {"brand": "トヨタ", "name": "シエンタ HV G",           "base": 195},
+    {"brand": "トヨタ", "name": "ヴォクシー S-Z",           "base": 310},
+    {"brand": "トヨタ", "name": "プリウス Z",               "base": 355},
+    {"brand": "トヨタ", "name": "ハリアー Z",               "base": 390},
+    {"brand": "トヨタ", "name": "ヤリスクロス HV Z",        "base": 235},
+    {"brand": "ホンダ", "name": "フリード G・Honda SENSING", "base": 185},
+    {"brand": "ホンダ", "name": "ヴェゼル e:HEV Z",         "base": 275},
+    {"brand": "ホンダ", "name": "ステップワゴン SPADA",      "base": 340},
 ]
-KANTO_PREF_NAMES = list(KANTO_PREFS.values())
-COLORS = ["白", "黒", "シルバー", "パール", "グレー"]
-COLOR_EMOJI = {"白": "⬜", "黒": "⬛", "シルバー": "◻️", "パール": "🤍", "グレー": "🩶"}
+_DEMO_PREFS = [v[1] for v in TOYOTA_KANTO_DEALERS.values()]
 
 
 def _generate_demo_listings() -> list[dict]:
-    """実スクレイピングのフォールバック用デモデータを生成する。"""
-    random.seed(42)
+    _rnd.seed(42)
     listings = []
     current_year = datetime.date.today().year
 
     for model in DEMO_MODELS:
-        for _ in range(random.randint(12, 18)):
-            year = random.randint(current_year - 4, current_year - 1)
-            mileage_km = int(random.uniform(5000, 98000))
-            variation = random.uniform(-0.18, 0.22)
-            price = int(model["base"] * (1 + variation) * (1 - (current_year - year) * 0.05))
-            color = random.choice(COLORS)
-            pref = random.choice(KANTO_PREF_NAMES)
+        for i in range(_rnd.randint(12, 18)):
+            year      = _rnd.randint(current_year - 4, current_year - 1)
+            mileage   = int(_rnd.uniform(5_000, 99_000))
+            variation = _rnd.uniform(-0.18, 0.22)
+            price     = int(model["base"] * (1 + variation) * (1 - (current_year - year) * 0.05))
+            pref      = _rnd.choice(_DEMO_PREFS)
             listings.append({
-                "brand": model["brand"],
-                "certified": True,
-                "name": model["name"],
-                "grade": "",
-                "year": year,
-                "mileage_km": mileage_km,
-                "color": color,
-                "color_emoji": COLOR_EMOJI.get(color, ""),
-                "pref": pref,
-                "shop": "",
-                "price": price,
-                "url": "#",
-                "is_new": random.random() < 0.4,
+                "id":          f"demo_{model['brand']}_{i}",
+                "source":      "demo",
+                "brand":       model["brand"],
+                "certified":   True,
+                "name":        model["name"],
+                "grade":       "",
+                "year":        year,
+                "mileage_km":  mileage,
+                "color":       "",
+                "color_emoji": "",
+                "pref":        pref,
+                "shop":        "デモ店舗",
+                "price":       price,
+                "url":         "#",
+                "is_new":      _rnd.random() < 0.4,
             })
 
     log.info("デモデータ生成: %d件", len(listings))
     return listings
 
 
-# ===== 公開API =====
+# ─────────────────────────────────────────────
+# 公開 API
+# ─────────────────────────────────────────────
 
 def fetch_all_listings(use_demo: bool = False) -> list[dict]:
     """
-    全メーカーの認定中古車リストを取得して返す。
+    GAZOO.com + Honda 公式 API から関東の認定中古車リストを取得して返す。
 
     Args:
         use_demo: True のときデモデータを使用
@@ -284,13 +377,16 @@ def fetch_all_listings(use_demo: bool = False) -> list[dict]:
         return _generate_demo_listings()
 
     listings: list[dict] = []
-    for brand_jp, brand_en in BRANDS.items():
-        results = _scrape_brand(brand_jp, brand_en, max_pages=2)
-        listings.extend(results)
+
+    toyota = fetch_gazoo_listings(new_only=True)
+    listings.extend(toyota)
+
+    honda = fetch_honda_listings(max_pages=5)
+    listings.extend(honda)
 
     if not listings:
-        log.warning("スクレイピング結果が0件 → デモデータにフォールバック")
+        log.warning("実スクレイピング結果が0件 → デモデータにフォールバック")
         return _generate_demo_listings()
 
-    log.info("スクレイピング完了: 合計%d件", len(listings))
+    log.info("スクレイピング完了: 合計 %d 件", len(listings))
     return listings
