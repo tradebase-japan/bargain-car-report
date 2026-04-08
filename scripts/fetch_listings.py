@@ -88,17 +88,17 @@ def _parse_gazoo_card(dl: BeautifulSoup, dealer_code: str, pref: str) -> "dict |
         car_id = id_m.group(1)
         url = "https://gazoo.com" + href
 
-        # 車両価格（li.base の .price .number）
+        # 支払総額（li.sum の .price .number）
         price_area = dd.find("ul", class_="price_area")
         if not price_area:
             return None
-        base_li = price_area.find("li", class_="base")
-        if not base_li:
+        sum_li = price_area.find("li", class_="sum")
+        if not sum_li:
             return None
-        num_p = base_li.find("p", class_="number")
+        num_p = sum_li.find("p", class_="number")
         if not num_p:
             return None
-        # <p class="number">300<span class="price_decimal"></span><span>万円</span></p>
+        # <p class="number">311<span class="price_decimal">.3</span><span>万円</span></p>
         price_text = num_p.get_text(strip=True).replace("万円", "").replace(",", "").strip()
         try:
             price = int(float(price_text))
@@ -254,7 +254,7 @@ def fetch_honda_listings(max_pages: int = 5) -> list[dict]:
                     if not wns_cd:
                         continue
 
-                    price_info = car.get("CarPrice", {})
+                    price_info = car.get("TotalAmount", {})
                     price_str  = price_info.get("Price", "0") if isinstance(price_info, dict) else "0"
                     try:
                         price = int(float(price_str))
