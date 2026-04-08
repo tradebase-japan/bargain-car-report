@@ -4,6 +4,8 @@ on:
   schedule:
     - cron: '0 0 * * *'   # JST 毎朝9:00（UTC 00:00）
   workflow_dispatch:        # 手動実行ボタン
+  push:
+    branches: [main]        # mainへのpushで自動実行
 
 permissions:
   contents: write           # GitHub Pages デプロイに必要
