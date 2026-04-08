@@ -32,10 +32,24 @@ def _year_band(year: int, width: int = 1) -> tuple[int, int]:
     return (year - width, year + width)
 
 
-def _mileage_band(mileage_km: int, band_size: int = 50000) -> tuple[int, int]:
-    """走行距離を band_size km 幅の帯にまとめる。"""
-    lower = (mileage_km // band_size) * band_size
-    return (lower, lower + band_size)
+# 走行距離帯（ユーザー指定: 0.5〜2.5 / 2.6〜4.9 / 5.0〜7.4 / 7.5〜9.9 万km）
+MILEAGE_BANDS = [
+    (5_000,  25_000),   # 0.5〜2.5万km
+    (26_000, 49_000),   # 2.6〜4.9万km
+    (50_000, 74_000),   # 5.0〜7.4万km
+    (75_000, 99_000),   # 7.5〜9.9万km
+]
+
+
+def _mileage_band(mileage_km: int) -> "tuple[int, int] | None":
+    """
+    走行距離が属する帯を返す。
+    対象帯外（0.5万km未満・10万km超）は None を返す。
+    """
+    for lo, hi in MILEAGE_BANDS:
+        if lo <= mileage_km <= hi:
+            return (lo, hi)
+    return None
 
 
 def find_bargains(
@@ -43,6 +57,7 @@ def find_bargains(
     discount_threshold: int = 10,
     top_n: int = 5,
     year_band_width: int = 1,
+    min_peers: int = 2,
 ) -> list["BargainCar"]:
     """
     割安な車両を検出して返す（割安額の降順）。
@@ -57,7 +72,12 @@ def find_bargains(
 
     for car in listings:
         year_lo, year_hi = _year_band(car["year"], year_band_width)
-        mileage_lo, mileage_hi = _mileage_band(car["mileage_km"])
+        band = _mileage_band(car["mileage_km"])
+
+        # 対象走行距離帯外はスキップ
+        if band is None:
+            continue
+        mileage_lo, mileage_hi = band
 
         peers = [
             c["price"] for c in listings
@@ -69,7 +89,7 @@ def find_bargains(
             )
         ]
 
-        if len(peers) < 3:
+        if len(peers) < min_peers:
             continue
 
         median = statistics.median(peers)
@@ -82,8 +102,8 @@ def find_bargains(
         mileage_man_km = car["mileage_km"] / 10000
         mileage_display = f"{mileage_man_km:.1f}万km"
 
-        mileage_lo_man = mileage_lo // 10000
-        mileage_hi_man = mileage_hi // 10000
+        mileage_lo_man = mileage_lo / 10000
+        mileage_hi_man = mileage_hi / 10000
 
         bargains.append(BargainCar(
             brand=car["brand"],
@@ -104,7 +124,7 @@ def find_bargains(
             discount_pct=round(discount_pct, 1),
             compare_count=len(peers),
             year_range=f"{year_lo}〜{year_hi}年",
-            mileage_range=f"{mileage_lo_man}〜{mileage_hi_man}万km",
+            mileage_range=f"{mileage_lo_man:.1f}〜{mileage_hi_man:.1f}万km",
         ))
 
     # 割安額の大きい順（UIデザイナー指摘：最もお得な物件を先頭に）
