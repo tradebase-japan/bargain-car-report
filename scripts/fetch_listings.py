@@ -1,9 +1,11 @@
 """
 認定中古車リスト取得モジュール
-実スクレイピングが失敗した場合はデモデータにフォールバックする。
+グーネット（goo-net.com）から関東の認定中古車をスクレイピングする。
+失敗した場合はデモデータにフォールバックする。
 """
 import logging
 import random
+import re
 import time
 import datetime
 import requests
@@ -12,70 +14,160 @@ from bs4 import BeautifulSoup
 logging.basicConfig(level=logging.INFO, format="[fetch] %(message)s")
 log = logging.getLogger(__name__)
 
+BASE_URL = "https://www.goo-net.com/usedcar/brand-{brand}/pref-{pref:02d}/"
+
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/123.0.0.0 Safari/537.36"
-    )
+    ),
+    "Accept-Language": "ja,en;q=0.9",
 }
 
-KANTO_PREFS = ["東京都", "神奈川県", "埼玉県", "千葉県", "茨城県", "栃木県", "群馬県"]
-
-TOYOTA_MODELS = [
-    {"name": "シエンタ",     "grades": ["G", "Z", "X"],       "base_price": 195, "brand_id": "TO"},
-    {"name": "ヴォクシー",   "grades": ["S-Z", "S-G"],         "base_price": 310, "brand_id": "TO"},
-    {"name": "プリウス",     "grades": ["Z", "G", "U"],        "base_price": 355, "brand_id": "TO"},
-    {"name": "ハリアー",     "grades": ["Z", "G", "S"],        "base_price": 390, "brand_id": "TO"},
-    {"name": "ヤリスクロス", "grades": ["Z", "G", "X"],        "base_price": 235, "brand_id": "TO"},
-    {"name": "ライズ",       "grades": ["Z", "G", "X"],        "base_price": 215, "brand_id": "TO"},
-    {"name": "アルファード", "grades": ["Z", "G", "X"],        "base_price": 650, "brand_id": "TO"},
-]
-
-HONDA_MODELS = [
-    {"name": "フリード",       "grades": ["G Honda SENSING", "CROSSTAR Honda SENSING"], "base_price": 185, "brand_id": "HO"},
-    {"name": "ヴェゼル",       "grades": ["e:HEV Z", "e:HEV X", "G"],                  "base_price": 275, "brand_id": "HO"},
-    {"name": "ステップワゴン", "grades": ["SPADA", "AIR", "SPADA e:HEV"],               "base_price": 340, "brand_id": "HO"},
-    {"name": "フィット",       "grades": ["e:HEV HOME", "e:HEV NESS", "HOME"],          "base_price": 195, "brand_id": "HO"},
-    {"name": "ZR-V",           "grades": ["Z", "X"],                                    "base_price": 330, "brand_id": "HO"},
-]
-
-COLORS = ["白", "黒", "シルバー", "パール", "グレー", "ブルー", "レッド"]
-COLOR_EMOJI = {
-    "白": "⬜", "黒": "⬛", "シルバー": "◻️",
-    "パール": "🤍", "グレー": "🩶", "ブルー": "🟦", "レッド": "🟥",
+BRANDS = {
+    "トヨタ": "TOYOTA",
+    "ホンダ": "HONDA",
 }
 
-TOYOTA_SHOPS = [
-    "神奈川トヨタ 横浜港北店", "東京トヨタ 練馬店", "埼玉トヨタ 大宮店",
-    "千葉トヨタ 柏店", "茨城トヨタ 水戸店", "栃木トヨタ 宇都宮店",
-]
-HONDA_SHOPS = [
-    "Honda Cars 埼玉 浦和店", "Honda Cars 東京 新宿店", "Honda Cars 神奈川 横浜店",
-    "Honda Cars 千葉 船橋店", "Honda Cars 茨城 土浦店",
-]
+KANTO_PREFS = {
+    13: "東京都",
+    14: "神奈川県",
+    11: "埼玉県",
+    12: "千葉県",
+    8:  "茨城県",
+    9:  "栃木県",
+    10: "群馬県",
+}
+
+# ===== 実スクレイピング =====
+
+def _parse_card(card: BeautifulSoup, brand_jp: str, pref_name: str) -> "dict | None":
+    """div.box_item_detail から1件の車両情報を抽出する。"""
+    try:
+        h3 = card.select_one("h3")
+        if not h3:
+            return None
+
+        full_name = h3.get_text(strip=True)
+        # 先頭のブランド名（全角）を除去してモデル名を抽出
+        model_name = (
+            full_name
+            .replace("トヨタ", "")
+            .replace("ホンダ", "")
+            .strip()
+        )
+
+        spec_text = card.get_text(separator=" ", strip=True)
+
+        # 支払総額（最初に出てくる万円単位の数値）
+        prices_found = re.findall(r"([\d,]+\.?\d*)\s*万円", spec_text)
+        if not prices_found:
+            return None
+        price = int(float(prices_found[0].replace(",", "")))
+
+        # 年式
+        year_m = re.search(r"年式\D*(\d{4})年", spec_text)
+        year = int(year_m.group(1)) if year_m else 0
+        if not year:
+            return None
+
+        # 走行距離（万km → km変換）
+        km_m = re.search(r"走行距離\D*([\d.]+)万km", spec_text)
+        mileage_km = int(float(km_m.group(1)) * 10000) if km_m else 0
+
+        # 掲載URL
+        link = card.select_one("a[href*='/usedcar/spread/']")
+        detail_url = "https://www.goo-net.com" + link["href"] if link else "#"
+
+        # 新着判定
+        is_new = bool(card.find(string=re.compile(r"新着|NEW")))
+
+        return {
+            "brand": brand_jp,
+            "certified": True,
+            "name": model_name,
+            "grade": "",
+            "year": year,
+            "mileage_km": mileage_km,
+            "color": "",
+            "color_emoji": "",
+            "pref": pref_name,
+            "shop": "",
+            "price": price,
+            "url": detail_url,
+            "is_new": is_new,
+        }
+
+    except (AttributeError, ValueError, KeyError) as e:
+        log.debug("カードパース失敗: %s", e)
+        return None
 
 
-def _make_listing(
-    brand: str, model_name: str, grade: str, year: int,
-    mileage_km: int, color: str, pref: str, shop: str,
-    price: int, url: str = "#", is_new: bool = False,
-) -> dict:
-    return {
-        "brand": brand,
-        "certified": True,
-        "name": model_name,
-        "grade": grade,
-        "year": year,
-        "mileage_km": mileage_km,   # 常にkm単位（例: 21000）
-        "color": color,
-        "color_emoji": COLOR_EMOJI.get(color, ""),
-        "pref": pref,
-        "shop": shop,
-        "price": price,
-        "url": url,
-        "is_new": is_new,
-    }
+def _scrape_brand(brand_jp: str, brand_en: str, max_pages: int = 3) -> list[dict]:
+    """グーネットから指定メーカーの認定中古車を関東全域でスクレイピングする。"""
+    listings: list[dict] = []
+
+    for pref_code, pref_name in KANTO_PREFS.items():
+        for page in range(1, max_pages + 1):
+            url = BASE_URL.format(brand=brand_en, pref=pref_code)
+            params = {"certification": 1, "p": page}
+
+            try:
+                resp = requests.get(url, params=params, headers=HEADERS, timeout=12)
+                if resp.status_code != 200:
+                    log.debug("%s %s p%d: HTTP %d", brand_jp, pref_name, page, resp.status_code)
+                    break
+
+                resp.encoding = resp.apparent_encoding
+                soup = BeautifulSoup(resp.text, "lxml")
+                cards = soup.select("div.box_item_detail")
+
+                if not cards:
+                    break
+
+                page_results = []
+                for card in cards:
+                    parsed = _parse_card(card, brand_jp, pref_name)
+                    if parsed:
+                        page_results.append(parsed)
+
+                listings.extend(page_results)
+                log.info("%s %s p%d: %d件取得", brand_jp, pref_name, page, len(page_results))
+
+                if len(cards) < 20:
+                    break
+
+                time.sleep(random.uniform(1.0, 2.0))
+
+            except requests.RequestException as e:
+                log.warning("%s %s p%d: ネットワークエラー: %s", brand_jp, pref_name, page, e)
+                break
+            except Exception as e:
+                log.warning("%s %s p%d: 予期しないエラー: %s", brand_jp, pref_name, page, e)
+                break
+
+        time.sleep(random.uniform(0.8, 1.5))
+
+    log.info("%s: 合計%d件", brand_jp, len(listings))
+    return listings
+
+
+# ===== デモデータ（フォールバック用） =====
+
+DEMO_MODELS = [
+    {"brand": "トヨタ", "name": "シエンタ HV G",          "base": 195},
+    {"brand": "トヨタ", "name": "ヴォクシー S-Z",          "base": 310},
+    {"brand": "トヨタ", "name": "プリウス Z",              "base": 355},
+    {"brand": "トヨタ", "name": "ハリアー Z",              "base": 390},
+    {"brand": "トヨタ", "name": "ヤリスクロス HV Z",       "base": 235},
+    {"brand": "ホンダ", "name": "フリードＧ・センシング",   "base": 185},
+    {"brand": "ホンダ", "name": "ヴェゼル e:HEV Z",        "base": 275},
+    {"brand": "ホンダ", "name": "ステップワゴン SPADA",     "base": 340},
+]
+KANTO_PREF_NAMES = list(KANTO_PREFS.values())
+COLORS = ["白", "黒", "シルバー", "パール", "グレー"]
+COLOR_EMOJI = {"白": "⬜", "黒": "⬛", "シルバー": "◻️", "パール": "🤍", "グレー": "🩶"}
 
 
 def _generate_demo_listings() -> list[dict]:
@@ -83,138 +175,55 @@ def _generate_demo_listings() -> list[dict]:
     random.seed(42)
     listings = []
     current_year = datetime.date.today().year
-    all_models = [
-        ("トヨタ", TOYOTA_MODELS, TOYOTA_SHOPS),
-        ("ホンダ", HONDA_MODELS, HONDA_SHOPS),
-    ]
 
-    for brand, models, shops in all_models:
-        for model in models:
-            for _ in range(random.randint(8, 14)):
-                year = random.randint(current_year - 4, current_year - 1)
-                grade = random.choice(model["grades"])
-                mileage_km = int(random.uniform(5000, 98000))
-                variation = random.uniform(-0.15, 0.20)
-                price = int(
-                    model["base_price"]
-                    * (1 + variation)
-                    * (1 - (current_year - year) * 0.05)
-                )
-                color = random.choice(COLORS)
-                pref = random.choice(KANTO_PREFS)
-                shop = random.choice(shops)
-                listings.append(_make_listing(
-                    brand=brand,
-                    model_name=model["name"],
-                    grade=grade,
-                    year=year,
-                    mileage_km=mileage_km,
-                    color=color,
-                    pref=pref,
-                    shop=shop,
-                    price=price,
-                    url="#",
-                    is_new=random.random() < 0.4,
-                ))
+    for model in DEMO_MODELS:
+        for _ in range(random.randint(12, 18)):
+            year = random.randint(current_year - 4, current_year - 1)
+            mileage_km = int(random.uniform(5000, 98000))
+            variation = random.uniform(-0.18, 0.22)
+            price = int(model["base"] * (1 + variation) * (1 - (current_year - year) * 0.05))
+            color = random.choice(COLORS)
+            pref = random.choice(KANTO_PREF_NAMES)
+            listings.append({
+                "brand": model["brand"],
+                "certified": True,
+                "name": model["name"],
+                "grade": "",
+                "year": year,
+                "mileage_km": mileage_km,
+                "color": color,
+                "color_emoji": COLOR_EMOJI.get(color, ""),
+                "pref": pref,
+                "shop": "",
+                "price": price,
+                "url": "#",
+                "is_new": random.random() < 0.4,
+            })
 
     log.info("デモデータ生成: %d件", len(listings))
     return listings
 
 
-def _scrape_model(brand: str, model_name: str, brand_id: str) -> list[dict]:
-    """
-    カーセンサーから指定モデルの認定中古車をスクレイピングする。
-    失敗した場合は空リストを返す。
-    """
-    try:
-        url = (
-            f"https://www.carsensor.net/usedcar/{brand_id}/"
-            f"?STID=CS_NEWCAR&MKID={brand_id}&CARNAME={model_name}"
-            f"&AREACD=010&BSTYPE=used"
-        )
-        resp = requests.get(url, headers=HEADERS, timeout=10)
-        if resp.status_code != 200:
-            log.warning("%s %s: HTTPエラー %d", brand, model_name, resp.status_code)
-            return []
+# ===== 公開API =====
 
-        soup = BeautifulSoup(resp.text, "lxml")
-        cards = soup.select("section.cassetteMain")
-        results = []
-
-        for card in cards[:20]:
-            try:
-                name_el  = card.select_one(".modelName")
-                price_el = card.select_one(".totalPrice")
-                year_el  = card.select_one(".year")
-                km_el    = card.select_one(".mileage")
-                pref_el  = card.select_one(".area")
-                url_el   = card.select_one("a[href]")
-
-                if not (name_el and price_el):
-                    continue
-
-                price = int(price_el.get_text(strip=True).replace("万円", "").replace(",", ""))
-                year  = int((year_el.get_text(strip=True) if year_el else "2022年").replace("年", ""))
-                km_text = km_el.get_text(strip=True) if km_el else "3万km"
-                mileage_km = int(float(km_text.replace("万km", "")) * 10000)
-                pref  = pref_el.get_text(strip=True) if pref_el else "東京都"
-                detail_url = url_el["href"] if url_el else "#"
-
-                results.append(_make_listing(
-                    brand=brand,
-                    model_name=name_el.get_text(strip=True),
-                    grade="",
-                    year=year,
-                    mileage_km=mileage_km,
-                    color="白",
-                    pref=pref,
-                    shop="",
-                    price=price,
-                    url=detail_url,
-                ))
-            except (ValueError, AttributeError, KeyError) as e:
-                log.debug("カードパース失敗: %s", e)
-                continue
-
-        log.info("%s %s: %d件取得", brand, model_name, len(results))
-        return results
-
-    except requests.RequestException as e:
-        log.warning("%s %s: ネットワークエラー: %s", brand, model_name, e)
-        return []
-    except Exception as e:
-        log.warning("%s %s: 予期しないエラー: %s", brand, model_name, e)
-        return []
-
-
-def _scrape_all() -> list[dict]:
-    """全モデルをスクレイピングして結果を結合する。"""
-    listings = []
-    all_models = [
-        ("トヨタ", TOYOTA_MODELS),
-        ("ホンダ", HONDA_MODELS),
-    ]
-    for brand, models in all_models:
-        for model in models:
-            results = _scrape_model(brand, model["name"], model["brand_id"])
-            listings.extend(results)
-            time.sleep(random.uniform(1.5, 3.0))   # レートリミット対策
-
-    return listings
-
-
-def fetch_all_listings(use_demo: bool = True) -> list[dict]:
+def fetch_all_listings(use_demo: bool = False) -> list[dict]:
     """
     全メーカーの認定中古車リストを取得して返す。
 
     Args:
-        use_demo: True のときデモデータを使用（GitHub Actions での安定動作用）
+        use_demo: True のときデモデータを使用
     """
-    if not use_demo:
-        listings = _scrape_all()
-        if listings:
-            log.info("スクレイピング成功: 計%d件", len(listings))
-            return listings
-        log.warning("スクレイピング結果が0件 → デモデータにフォールバック")
+    if use_demo:
+        return _generate_demo_listings()
 
-    return _generate_demo_listings()
+    listings: list[dict] = []
+    for brand_jp, brand_en in BRANDS.items():
+        results = _scrape_brand(brand_jp, brand_en, max_pages=2)
+        listings.extend(results)
+
+    if not listings:
+        log.warning("スクレイピング結果が0件 → デモデータにフォールバック")
+        return _generate_demo_listings()
+
+    log.info("スクレイピング完了: 合計%d件", len(listings))
+    return listings

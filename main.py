@@ -19,7 +19,7 @@ from scripts.analyze         import find_bargains, summarize
 from scripts.generate_report import generate_report
 from scripts.notify_slack    import notify_slack
 
-USE_DEMO       = os.environ.get("USE_DEMO", "true").lower() != "false"
+USE_DEMO       = os.environ.get("USE_DEMO", "false").lower() != "false"
 OUTPUT_PATH    = os.environ.get("OUTPUT_PATH", "output/index.html")
 REPORT_URL     = os.environ.get("REPORT_URL", "")
 SLACK_WEBHOOK  = os.environ.get("SLACK_WEBHOOK_URL", "")

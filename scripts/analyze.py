@@ -63,7 +63,6 @@ def find_bargains(
             c["price"] for c in listings
             if (
                 c["name"] == car["name"]
-                and c["grade"] == car["grade"]
                 and year_lo <= c["year"] <= year_hi
                 and mileage_lo <= c["mileage_km"] <= mileage_hi
                 and c is not car
