@@ -6,6 +6,7 @@ import logging
 import random
 import re
 import time
+import unicodedata
 import requests
 from bs4 import BeautifulSoup
 
@@ -210,6 +211,41 @@ def fetch_gazoo_listings(new_only: bool = True) -> list[dict]:
 
     log.info("GAZOO 合計: %d件", len(listings))
     return listings
+
+
+# ─────────────────────────────────────────────
+# GAZOO.com 詳細ページ 色情報取得
+# ─────────────────────────────────────────────
+
+def fetch_gazoo_color(url: str) -> str:
+    """
+    GAZOO.com の車両詳細ページからボディカラーを取得する。
+    半角カナを全角に正規化して返す。
+    （割安候補に絞って呼び出すため、リクエスト数は最小限）
+
+    Args:
+        url: GAZOO.com 詳細ページURL（例: https://gazoo.com/DealerU-Car/detail?Id=...）
+
+    Returns:
+        色名文字列（例: "プラチナホワイトパールマイカ"）。取得失敗時は空文字。
+    """
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=15)
+        if resp.status_code != 200:
+            return ""
+        soup = BeautifulSoup(resp.text, "lxml")
+        for th in soup.find_all("th"):
+            label = th.get_text(strip=True)
+            if label in ("カラー", "ボディカラー", "色"):
+                td = th.find_next_sibling("td")
+                if td:
+                    # 半角カナ → 全角カナに正規化
+                    raw = td.get_text(strip=True)
+                    return unicodedata.normalize("NFKC", raw)
+        return ""
+    except Exception as e:
+        log.debug("GAZOOカラー取得失敗 %s: %s", url, e)
+        return ""
 
 
 # ─────────────────────────────────────────────
