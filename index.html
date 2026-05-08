@@ -10,45 +10,46 @@
       theme: {
         extend: {
           fontFamily: {
-            sans: ['-apple-system', 'BlinkMacSystemFont', '"Hiragino Sans"', '"Hiragino Kaku Gothic ProN"', '"Noto Sans JP"', 'sans-serif'],
+            sans: ['-apple-system','BlinkMacSystemFont','"Hiragino Sans"','"Hiragino Kaku Gothic ProN"','"Noto Sans JP"','sans-serif'],
           },
           colors: {
             surface: '#f8f9fb',
-            brand: {
-              50:  '#f0f9ff',
-              100: '#e0f2fe',
-              500: '#0ea5e9',
-              600: '#0284c7',
-            },
-            deal: {
-              50:  '#f0fdf4',
-              100: '#dcfce7',
-              500: '#22c55e',
-              600: '#16a34a',
-              700: '#15803d',
-            }
+            brand:  { 50:'#f0f9ff', 100:'#e0f2fe', 500:'#0ea5e9', 600:'#0284c7' },
+            deal:   { 50:'#f0fdf4', 100:'#dcfce7', 500:'#22c55e', 600:'#16a34a', 700:'#15803d' },
           },
           boxShadow: {
             'soft': '0 2px 16px 0 rgba(0,0,0,0.06)',
             'card': '0 4px 24px 0 rgba(0,0,0,0.08)',
-          }
+          },
         }
       }
     }
   </script>
   <style>
     .price-diff { letter-spacing: -0.03em; }
-    .divider { border-color: #efefef; }
+    .divider    { border-color: #efefef; }
     .sr-only {
       position: absolute; width: 1px; height: 1px;
       padding: 0; margin: -1px; overflow: hidden;
       clip: rect(0,0,0,0); white-space: nowrap; border-width: 0;
     }
+    @media (prefers-color-scheme: dark) {
+      body { background-color: #111827; color: #f3f4f6; }
+      header { background-color: #1f2937; border-color: #374151; }
+      .bg-white { background-color: #1f2937 !important; }
+      .text-gray-900 { color: #f9fafb !important; }
+      .text-gray-800 { color: #e5e7eb !important; }
+      .text-gray-700 { color: #d1d5db !important; }
+      .text-gray-600 { color: #9ca3af !important; }
+      .text-gray-500 { color: #6b7280 !important; }
+      .bg-gray-50    { background-color: #111827 !important; }
+      .bg-gray-100   { background-color: #374151 !important; }
+      .border-gray-100 { border-color: #374151 !important; }
+    }
   </style>
 </head>
 <body class="font-sans text-gray-800 min-h-screen bg-surface">
 
-  <!-- ========== HEADER ========== -->
   <header class="bg-white border-b border-gray-100 shadow-soft sticky top-0 z-10">
     <div class="max-w-5xl mx-auto px-5 sm:px-8 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
       <div>
@@ -60,14 +61,14 @@
       </div>
       <div class="ml-7 sm:ml-0 flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
         <span aria-hidden="true">🕐</span>
-        <span>最終更新：2026/04/07 09:00</span>
+        <span>最終更新：2026/05/08 06:57</span>
       </div>
     </div>
   </header>
 
   <main class="max-w-5xl mx-auto px-5 sm:px-8 py-8 sm:py-12 space-y-10">
 
-    <!-- ========== SUBMISSION NOTE ========== -->
+    <!-- 提出用補足（課題要件） -->
     <section aria-label="提出用補足">
       <div class="bg-white rounded-2xl shadow-soft border border-gray-100 p-6 space-y-4">
         <div class="flex items-center gap-2">
@@ -76,9 +77,11 @@
         </div>
         <p class="text-sm text-gray-600">提出要件に合わせて、報告ツール画面の画像と工夫ポイントを1ページにまとめています。</p>
 
+        
         <div class="border border-gray-100 rounded-xl overflow-hidden bg-gray-50">
           <img src="./report-screenshot.png" alt="報告ツール画面のスクリーンショット" class="w-full h-auto" />
         </div>
+        
 
         <div>
           <p class="text-sm font-semibold text-gray-700 mb-2">工夫したポイント（4パーツ）</p>
@@ -92,42 +95,35 @@
       </div>
     </section>
 
-    <!-- ========== SUMMARY CARDS ========== -->
+    <!-- サマリーカード -->
     <section aria-label="サマリー">
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-
-        <!-- 検知件数 -->
         <div class="bg-white rounded-2xl shadow-soft border border-gray-100 px-5 py-5 flex flex-col gap-1">
           <span class="text-xs text-gray-500 font-medium">検知件数</span>
           <div class="flex items-end gap-1.5 mt-1">
-            <span class="text-3xl font-bold text-gray-900 leading-none">3</span>
+            <span class="text-3xl font-bold text-gray-900 leading-none">0</span>
             <span class="text-sm text-gray-500 mb-0.5">件</span>
           </div>
           <span class="text-xs text-deal-600 font-medium mt-1"><span aria-hidden="true">✅</span> 今日の新着</span>
         </div>
 
-        <!-- 平均割安額 -->
         <div class="bg-white rounded-2xl shadow-soft border border-gray-100 px-5 py-5 flex flex-col gap-1">
           <span class="text-xs text-gray-500 font-medium">平均割安額</span>
           <div class="flex items-end gap-1.5 mt-1">
-            <span class="text-3xl font-bold text-deal-600 leading-none">21.7</span>
+            <span class="text-3xl font-bold text-deal-600 leading-none">0.0</span>
             <span class="text-sm text-gray-500 mb-0.5">万円</span>
           </div>
           <span class="text-xs text-deal-600 font-medium mt-1"><span aria-hidden="true">💚</span> 相場より安い</span>
         </div>
 
-        <!-- 監視対象 -->
         <div class="bg-white rounded-2xl shadow-soft border border-gray-100 px-5 py-5 flex flex-col gap-1">
           <span class="text-xs text-gray-500 font-medium">監視対象</span>
-          <div class="flex items-center gap-1.5 mt-2">
-            <span class="text-sm font-semibold text-gray-700 leading-tight">トヨタ</span>
-            <span class="text-gray-300" aria-hidden="true">/</span>
-            <span class="text-sm font-semibold text-gray-700 leading-tight">ホンダ</span>
+          <div class="flex items-center gap-1.5 mt-2 flex-wrap">
+            
           </div>
           <span class="text-xs text-brand-500 font-medium mt-1"><span aria-hidden="true">ℹ️</span> 認定中古車のみ</span>
         </div>
 
-        <!-- 対象地域 -->
         <div class="bg-white rounded-2xl shadow-soft border border-gray-100 px-5 py-5 flex flex-col gap-1">
           <span class="text-xs text-gray-500 font-medium">対象地域</span>
           <div class="flex items-end gap-1.5 mt-1">
@@ -135,290 +131,23 @@
           </div>
           <span class="text-xs text-brand-500 font-medium mt-1"><span aria-hidden="true">📍</span> 1都6県</span>
         </div>
-
       </div>
     </section>
 
-    <!-- ========== MAIN CARDS ========== -->
+    <!-- 車両カード一覧（割安額の降順） -->
     <section class="space-y-6" aria-label="割安車両一覧">
-      <h2 class="text-sm font-semibold text-gray-500">割安車両 — 3件</h2>
+      <h2 class="text-sm font-semibold text-gray-500">割安車両 — 0件</h2>
 
-      <!-- ===== CARD 1: シエンタ ===== -->
-      <article class="bg-white rounded-3xl shadow-card border border-gray-100 overflow-hidden">
-
-        <!-- カードヘッダー -->
-        <div class="flex items-center justify-between px-6 pt-6 pb-4">
-          <div class="flex items-center gap-2">
-            <span class="bg-deal-100 text-deal-700 text-xs font-semibold px-3 py-1 rounded-full"><span aria-hidden="true">🆕</span> 新着</span>
-          </div>
-          <span class="bg-blue-50 text-blue-600 text-xs font-semibold px-3 py-1 rounded-full border border-blue-100"><span aria-hidden="true">🏅</span> トヨタ認定中古車</span>
-        </div>
-
-        <div class="px-6 pb-6 space-y-5">
-
-          <!-- 車名 -->
-          <div class="border-b divider pb-5">
-            <h3 class="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight leading-snug">シエンタ HV G</h3>
-            <p class="text-sm text-gray-500 mt-1">2022年式・低走行・関東掲載の割安候補</p>
-          </div>
-
-          <!-- 価格エリア：割安額を主役に -->
-          <div class="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
-            <!-- 割安額（主役） -->
-            <div class="bg-deal-50 border border-deal-100 rounded-2xl px-6 py-4 flex flex-col items-start">
-              <p class="text-xs text-deal-600 font-semibold mb-1">相場より</p>
-              <p class="text-4xl sm:text-5xl font-bold text-deal-600 price-diff leading-none">−22<span class="text-xl font-semibold ml-1">万円</span></p>
-            </div>
-            <!-- 支払総額（副役） -->
-            <div class="flex flex-col">
-              <p class="text-xs text-gray-500 mb-1">支払総額</p>
-              <p class="text-2xl font-bold text-gray-700 price-diff leading-none">182<span class="text-base font-semibold text-gray-500 ml-1">万円</span></p>
-              <p class="text-xs text-gray-400 mt-1.5">カーセンサー・グーネット比較でも割安</p>
-            </div>
-          </div>
-
-          <!-- 詳細グリッド -->
-          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-gray-50 rounded-2xl p-4">
-            <div>
-              <p class="text-xs text-gray-500">年式</p>
-              <p class="text-sm font-semibold text-gray-800 mt-0.5">2022年</p>
-            </div>
-            <div>
-              <p class="text-xs text-gray-500">走行距離</p>
-              <p class="text-sm font-semibold text-gray-800 mt-0.5">2.1万km</p>
-            </div>
-            <div>
-              <p class="text-xs text-gray-500">色</p>
-              <p class="text-sm font-semibold text-gray-800 mt-0.5"><span aria-hidden="true">⬜</span> 白</p>
-            </div>
-            <div>
-              <p class="text-xs text-gray-500">グレード</p>
-              <p class="text-sm font-semibold text-gray-800 mt-0.5">G</p>
-            </div>
-            <div>
-              <p class="text-xs text-gray-500">地域</p>
-              <p class="text-sm font-semibold text-gray-800 mt-0.5">神奈川県</p>
-            </div>
-            <div>
-              <p class="text-xs text-gray-500">店舗</p>
-              <p class="text-sm font-semibold text-gray-800 mt-0.5">神奈川トヨタ ○○店</p>
-            </div>
-          </div>
-
-          <!-- 比較条件 -->
-          <div class="bg-brand-50 border border-brand-100 rounded-2xl px-4 py-4">
-            <p class="text-xs font-semibold text-brand-600 mb-2"><span aria-hidden="true">ℹ️</span> 比較条件</p>
-            <div class="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1.5 text-xs text-gray-600">
-              <div class="flex gap-1"><span class="text-gray-500">年式帯</span><span class="font-medium ml-auto">2021〜2023年</span></div>
-              <div class="flex gap-1"><span class="text-gray-500">グレード</span><span class="font-medium ml-auto">G</span></div>
-              <div class="flex gap-1"><span class="text-gray-500">距離帯</span><span class="font-medium ml-auto">0〜5万km</span></div>
-              <div class="flex gap-1"><span class="text-gray-500">価格基準</span><span class="font-medium ml-auto">支払総額</span></div>
-              <div class="flex gap-1"><span class="text-gray-500">比較件数</span><span class="font-medium ml-auto">8件</span></div>
-            </div>
-          </div>
-
-          <!-- 判定理由 -->
-          <div>
-            <p class="text-xs font-semibold text-gray-600 mb-2">判定理由</p>
-            <ul class="space-y-1.5 text-sm text-gray-700">
-              <li class="flex items-start gap-2"><span class="text-deal-500 mt-0.5" aria-hidden="true">✓</span>市場中央値より22万円安い</li>
-              <li class="flex items-start gap-2"><span class="text-deal-500 mt-0.5" aria-hidden="true">✓</span>同条件8件の中でも安値帯</li>
-              <li class="flex items-start gap-2"><span class="text-deal-500 mt-0.5" aria-hidden="true">✓</span>新着掲載のため即確認推奨</li>
-            </ul>
-          </div>
-
-          <!-- ボタン -->
-          <div class="flex flex-col sm:flex-row gap-2 pt-1">
-            <a href="#" class="flex-1 flex items-center justify-center gap-2 bg-gray-900 text-white text-sm font-semibold px-5 py-3 rounded-2xl hover:bg-gray-700 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900">
-              <span aria-hidden="true">🔗</span> 掲載ページを見る
-            </a>
-            <a href="#" class="flex-1 flex items-center justify-center gap-2 bg-gray-100 text-gray-700 text-sm font-semibold px-5 py-3 rounded-2xl hover:bg-gray-200 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400">
-              <span aria-hidden="true">💬</span> Slack通知イメージ
-            </a>
-          </div>
-
-        </div>
-      </article>
-
-      <!-- ===== CARD 2: フリード ===== -->
-      <article class="bg-white rounded-3xl shadow-card border border-gray-100 overflow-hidden">
-
-        <div class="flex items-center justify-between px-6 pt-6 pb-4">
-          <div class="flex items-center gap-2">
-            <span class="bg-deal-100 text-deal-700 text-xs font-semibold px-3 py-1 rounded-full"><span aria-hidden="true">🆕</span> 新着</span>
-          </div>
-          <span class="bg-red-50 text-red-500 text-xs font-semibold px-3 py-1 rounded-full border border-red-100"><span aria-hidden="true">🏅</span> ホンダ認定中古車</span>
-        </div>
-
-        <div class="px-6 pb-6 space-y-5">
-
-          <div class="border-b divider pb-5">
-            <h3 class="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight leading-snug">フリード G Honda SENSING</h3>
-            <p class="text-sm text-gray-500 mt-1">2021年式・低走行・関東掲載の割安候補</p>
-          </div>
-
-          <div class="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
-            <div class="bg-deal-50 border border-deal-100 rounded-2xl px-6 py-4 flex flex-col items-start">
-              <p class="text-xs text-deal-600 font-semibold mb-1">相場より</p>
-              <p class="text-4xl sm:text-5xl font-bold text-deal-600 price-diff leading-none">−24<span class="text-xl font-semibold ml-1">万円</span></p>
-            </div>
-            <div class="flex flex-col">
-              <p class="text-xs text-gray-500 mb-1">支払総額</p>
-              <p class="text-2xl font-bold text-gray-700 price-diff leading-none">168<span class="text-base font-semibold text-gray-500 ml-1">万円</span></p>
-              <p class="text-xs text-gray-400 mt-1.5">カーセンサー・グーネット比較でも割安</p>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-gray-50 rounded-2xl p-4">
-            <div>
-              <p class="text-xs text-gray-500">年式</p>
-              <p class="text-sm font-semibold text-gray-800 mt-0.5">2021年</p>
-            </div>
-            <div>
-              <p class="text-xs text-gray-500">走行距離</p>
-              <p class="text-sm font-semibold text-gray-800 mt-0.5">4.8万km</p>
-            </div>
-            <div>
-              <p class="text-xs text-gray-500">色</p>
-              <p class="text-sm font-semibold text-gray-800 mt-0.5"><span aria-hidden="true">⬛</span> 黒</p>
-            </div>
-            <div>
-              <p class="text-xs text-gray-500">グレード</p>
-              <p class="text-sm font-semibold text-gray-800 mt-0.5">G Honda SENSING</p>
-            </div>
-            <div>
-              <p class="text-xs text-gray-500">地域</p>
-              <p class="text-sm font-semibold text-gray-800 mt-0.5">埼玉県</p>
-            </div>
-            <div>
-              <p class="text-xs text-gray-500">店舗</p>
-              <p class="text-sm font-semibold text-gray-800 mt-0.5">Honda Cars 埼玉 ○○店</p>
-            </div>
-          </div>
-
-          <div class="bg-brand-50 border border-brand-100 rounded-2xl px-4 py-4">
-            <p class="text-xs font-semibold text-brand-600 mb-2"><span aria-hidden="true">ℹ️</span> 比較条件</p>
-            <div class="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1.5 text-xs text-gray-600">
-              <div class="flex gap-1"><span class="text-gray-500">年式帯</span><span class="font-medium ml-auto">2020〜2022年</span></div>
-              <div class="flex gap-1"><span class="text-gray-500">グレード</span><span class="font-medium ml-auto">G Honda SENSING</span></div>
-              <div class="flex gap-1"><span class="text-gray-500">距離帯</span><span class="font-medium ml-auto">0〜5万km</span></div>
-              <div class="flex gap-1"><span class="text-gray-500">価格基準</span><span class="font-medium ml-auto">支払総額</span></div>
-              <div class="flex gap-1"><span class="text-gray-500">比較件数</span><span class="font-medium ml-auto">6件</span></div>
-            </div>
-          </div>
-
-          <div>
-            <p class="text-xs font-semibold text-gray-600 mb-2">判定理由</p>
-            <ul class="space-y-1.5 text-sm text-gray-700">
-              <li class="flex items-start gap-2"><span class="text-deal-500 mt-0.5" aria-hidden="true">✓</span>市場中央値より24万円安い</li>
-              <li class="flex items-start gap-2"><span class="text-deal-500 mt-0.5" aria-hidden="true">✓</span>同条件6件の中でも最安値帯</li>
-              <li class="flex items-start gap-2"><span class="text-deal-500 mt-0.5" aria-hidden="true">✓</span>Honda認定保証付きで安心度が高い</li>
-            </ul>
-          </div>
-
-          <div class="flex flex-col sm:flex-row gap-2 pt-1">
-            <a href="#" class="flex-1 flex items-center justify-center gap-2 bg-gray-900 text-white text-sm font-semibold px-5 py-3 rounded-2xl hover:bg-gray-700 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900">
-              <span aria-hidden="true">🔗</span> 掲載ページを見る
-            </a>
-            <a href="#" class="flex-1 flex items-center justify-center gap-2 bg-gray-100 text-gray-700 text-sm font-semibold px-5 py-3 rounded-2xl hover:bg-gray-200 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400">
-              <span aria-hidden="true">💬</span> Slack通知イメージ
-            </a>
-          </div>
-
-        </div>
-      </article>
-
-      <!-- ===== CARD 3: ヴォクシー ===== -->
-      <article class="bg-white rounded-3xl shadow-card border border-gray-100 overflow-hidden">
-
-        <div class="flex items-center justify-between px-6 pt-6 pb-4">
-          <div class="flex items-center gap-2">
-            <span class="bg-deal-100 text-deal-700 text-xs font-semibold px-3 py-1 rounded-full"><span aria-hidden="true">🆕</span> 新着</span>
-          </div>
-          <span class="bg-blue-50 text-blue-600 text-xs font-semibold px-3 py-1 rounded-full border border-blue-100"><span aria-hidden="true">🏅</span> トヨタ認定中古車</span>
-        </div>
-
-        <div class="px-6 pb-6 space-y-5">
-
-          <div class="border-b divider pb-5">
-            <h3 class="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight leading-snug">ヴォクシー S-Z</h3>
-            <p class="text-sm text-gray-500 mt-1">2023年式・低走行・関東掲載の割安候補</p>
-          </div>
-
-          <div class="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
-            <div class="bg-deal-50 border border-deal-100 rounded-2xl px-6 py-4 flex flex-col items-start">
-              <p class="text-xs text-deal-600 font-semibold mb-1">相場より</p>
-              <p class="text-4xl sm:text-5xl font-bold text-deal-600 price-diff leading-none">−27<span class="text-xl font-semibold ml-1">万円</span></p>
-            </div>
-            <div class="flex flex-col">
-              <p class="text-xs text-gray-500 mb-1">支払総額</p>
-              <p class="text-2xl font-bold text-gray-700 price-diff leading-none">289<span class="text-base font-semibold text-gray-500 ml-1">万円</span></p>
-              <p class="text-xs text-gray-400 mt-1.5">カーセンサー・グーネット比較でも割安</p>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-gray-50 rounded-2xl p-4">
-            <div>
-              <p class="text-xs text-gray-500">年式</p>
-              <p class="text-sm font-semibold text-gray-800 mt-0.5">2023年</p>
-            </div>
-            <div>
-              <p class="text-xs text-gray-500">走行距離</p>
-              <p class="text-sm font-semibold text-gray-800 mt-0.5">3.4万km</p>
-            </div>
-            <div>
-              <p class="text-xs text-gray-500">色</p>
-              <p class="text-sm font-semibold text-gray-800 mt-0.5"><span aria-hidden="true">🤍</span> パール</p>
-            </div>
-            <div>
-              <p class="text-xs text-gray-500">グレード</p>
-              <p class="text-sm font-semibold text-gray-800 mt-0.5">S-Z</p>
-            </div>
-            <div>
-              <p class="text-xs text-gray-500">地域</p>
-              <p class="text-sm font-semibold text-gray-800 mt-0.5">千葉県</p>
-            </div>
-            <div>
-              <p class="text-xs text-gray-500">店舗</p>
-              <p class="text-sm font-semibold text-gray-800 mt-0.5">千葉トヨタ ○○店</p>
-            </div>
-          </div>
-
-          <div class="bg-brand-50 border border-brand-100 rounded-2xl px-4 py-4">
-            <p class="text-xs font-semibold text-brand-600 mb-2"><span aria-hidden="true">ℹ️</span> 比較条件</p>
-            <div class="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1.5 text-xs text-gray-600">
-              <div class="flex gap-1"><span class="text-gray-500">年式帯</span><span class="font-medium ml-auto">2022〜2024年</span></div>
-              <div class="flex gap-1"><span class="text-gray-500">グレード</span><span class="font-medium ml-auto">S-Z</span></div>
-              <div class="flex gap-1"><span class="text-gray-500">距離帯</span><span class="font-medium ml-auto">0〜5万km</span></div>
-              <div class="flex gap-1"><span class="text-gray-500">価格基準</span><span class="font-medium ml-auto">支払総額</span></div>
-              <div class="flex gap-1"><span class="text-gray-500">比較件数</span><span class="font-medium ml-auto">5件</span></div>
-            </div>
-          </div>
-
-          <div>
-            <p class="text-xs font-semibold text-gray-600 mb-2">判定理由</p>
-            <ul class="space-y-1.5 text-sm text-gray-700">
-              <li class="flex items-start gap-2"><span class="text-deal-500 mt-0.5" aria-hidden="true">✓</span>市場中央値より27万円安い（3件中最大差額）</li>
-              <li class="flex items-start gap-2"><span class="text-deal-500 mt-0.5" aria-hidden="true">✓</span>同条件5件の中でも最安値</li>
-              <li class="flex items-start gap-2"><span class="text-deal-500 mt-0.5" aria-hidden="true">✓</span>2023年式・3.4万kmと程度が良く即確認推奨</li>
-            </ul>
-          </div>
-
-          <div class="flex flex-col sm:flex-row gap-2 pt-1">
-            <a href="#" class="flex-1 flex items-center justify-center gap-2 bg-gray-900 text-white text-sm font-semibold px-5 py-3 rounded-2xl hover:bg-gray-700 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900">
-              <span aria-hidden="true">🔗</span> 掲載ページを見る
-            </a>
-            <a href="#" class="flex-1 flex items-center justify-center gap-2 bg-gray-100 text-gray-700 text-sm font-semibold px-5 py-3 rounded-2xl hover:bg-gray-200 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400">
-              <span aria-hidden="true">💬</span> Slack通知イメージ
-            </a>
-          </div>
-
-        </div>
-      </article>
+      
+      <div class="bg-white rounded-2xl shadow-soft border border-gray-100 px-6 py-10 text-center text-gray-500">
+        <p class="text-lg font-semibold">本日の割安車両は見つかりませんでした</p>
+        <p class="text-sm mt-1">明日の更新をお待ちください</p>
+      </div>
+      
 
     </section>
 
-    <!-- ========== FOOTER NOTE ========== -->
+    <!-- 注意事項 -->
     <section aria-labelledby="notice-heading">
       <h2 id="notice-heading" class="sr-only">注意事項</h2>
       <div class="bg-white rounded-2xl shadow-soft border border-gray-100 px-6 py-5 flex flex-col sm:flex-row gap-4 items-start">
@@ -435,10 +164,9 @@
     </section>
 
     <footer class="text-center text-xs text-gray-400 pb-4">
-      割安認定中古車レポート · 自動生成 · 2026/04/07
+      割安認定中古車レポート · 自動生成 · 2026/05/08
     </footer>
 
   </main>
-
 </body>
 </html>
