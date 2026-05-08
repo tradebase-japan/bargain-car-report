@@ -3,6 +3,7 @@ HTMLレポート生成モジュール
 bargain-car-report.html と同じデザインのレポートを Jinja2 で生成する。
 """
 import datetime
+import shutil
 from pathlib import Path
 from jinja2 import Environment, BaseLoader
 
@@ -75,6 +76,37 @@ TEMPLATE = """<!DOCTYPE html>
   </header>
 
   <main class="max-w-5xl mx-auto px-5 sm:px-8 py-8 sm:py-12 space-y-10">
+
+    <!-- 提出用補足（課題要件） -->
+    <section aria-label="提出用補足">
+      <div class="bg-white rounded-2xl shadow-soft border border-gray-100 p-6 space-y-4">
+        <div class="flex items-center gap-2">
+          <span class="text-lg" aria-hidden="true">🛠️</span>
+          <h2 class="text-base font-semibold text-gray-900">提出用補足（課題要件）</h2>
+        </div>
+        <p class="text-sm text-gray-600">提出要件に合わせて、報告ツール画面の画像と工夫ポイントを1ページにまとめています。</p>
+
+        {% if screenshot_available %}
+        <div class="border border-gray-100 rounded-xl overflow-hidden bg-gray-50">
+          <img src="./report-screenshot.png" alt="報告ツール画面のスクリーンショット" class="w-full h-auto" />
+        </div>
+        {% else %}
+        <div class="border border-dashed border-gray-300 rounded-xl px-4 py-5 text-sm text-gray-500 bg-gray-50">
+          スクリーンショット画像（report-screenshot.png）が未配置のため、画像表示をスキップしています。
+        </div>
+        {% endif %}
+
+        <div>
+          <p class="text-sm font-semibold text-gray-700 mb-2">工夫したポイント（4パーツ）</p>
+          <ul class="space-y-1 text-sm text-gray-700 leading-relaxed">
+            <li>・ 4パーツ構成（サマリー / 車両カード / 比較条件 / 注意事項）で、把握→判断→確認の順に読める情報設計にした。</li>
+            <li>・ 割安額を主役、支払総額を副役として視線誘導し、認定ブランドや新着をバッジで即判別できるデザインにした。</li>
+            <li>・ 長いグレード名・店舗名でレイアウトが崩れる課題に対し、表示幅制御と補助表示で可読性を維持した。</li>
+            <li>・ 比較件数が少ない場合の判断の難しさに対し、件数の目安表示を入れて根拠の強さを伝えるようにした。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
 
     <!-- サマリーカード -->
     <section aria-label="サマリー">
@@ -290,10 +322,17 @@ def generate_report(
         summary=summary,
         generated_at=generated_at,
         generated_date=generated_date,
+        screenshot_available=(Path(__file__).resolve().parent.parent / "report-screenshot.png").exists(),
     )
 
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html, encoding="utf-8")
+
+    # 提出要件用にスクリーンショットがあれば出力ディレクトリへ同梱
+    screenshot_src = Path(__file__).resolve().parent.parent / "report-screenshot.png"
+    screenshot_dst = out.parent / "report-screenshot.png"
+    if screenshot_src.exists():
+        shutil.copy2(screenshot_src, screenshot_dst)
     print(f"[generate] レポート生成: {out.resolve()}")
     return out
